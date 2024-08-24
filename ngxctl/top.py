@@ -1,5 +1,6 @@
 # ngxctl/top.py
 import json
+import os.path
 from queue import Queue
 
 import click
@@ -43,6 +44,9 @@ def top(conf, group_by, order_by, where, having, limit, follow):
     :param follow:
     :return:
     """
+    if not os.path.exists(conf):
+        raise FileNotFoundError(f"{conf} does not exist")
+
     # step: 先尝试解析conf
     if conf.endswith(".json"):
         payload = json.load(open(conf, 'r', encoding="utf-8"))
