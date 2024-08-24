@@ -6,7 +6,7 @@ from queue import Queue
 import click
 import crossplane
 
-from ngxctl.utils import top_stat, log_info_extractor, sqlite_utils
+from ngxctl.utils import top_stat, config_parser, sqlite_utils
 from ngxctl.utils.misc_utils import display_report
 
 
