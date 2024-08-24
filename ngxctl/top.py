@@ -1,6 +1,7 @@
-# src/ngxctl/commands/top.py
+# ngxctl/top.py
 
 import click
+from ngxctl import sql_utils  # 更新后的导入路径
 
 
 @click.command()
@@ -11,16 +12,14 @@ import click
 @click.option('--no-follow', is_flag=True, help='Read the entire log file without following new entries.')
 def top(conf, group_by, order_by, filter, no_follow):
     """Display top statistics from Nginx logs."""
-    # Print received options for debugging
+    click.echo(f'TABLE_NAME from sql_utils: {sql_utils.TABLE_NAME}')
+
     click.echo(f'Using config: {conf}')
     click.echo(f'Group by: {group_by}')
     click.echo(f'Order by: {order_by}')
     click.echo(f'Filter: {filter}')
     click.echo(f'No follow: {no_follow}')
 
-    # Placeholder for the main logic
-    # Here, you would implement the logic to parse logs, group, order, and filter data
-    # For now, we'll just echo a message
     click.echo('Processing Nginx logs...')
 
 

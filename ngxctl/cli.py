@@ -1,7 +1,7 @@
-# src/ngxctl/cli.py
+# ngxctl/cli.py
 
 import click
-from .commands import top
+from ngxctl import top  # 更新后的导入路径
 
 @click.group()
 def cli():
@@ -11,7 +11,5 @@ def cli():
 # Add subcommands to the cli group
 cli.add_command(top.top)
 
-
-# 参考的运行代码： python -m src.ngxctl.cli top --conf /etc/nginx/nginx.conf
 if __name__ == "__main__":
     cli()
