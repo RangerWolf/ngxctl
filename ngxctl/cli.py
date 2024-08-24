@@ -1,7 +1,8 @@
 # ngxctl/cli.py
 
 import click
-from ngxctl import top  # 更新后的导入路径
+from ngxctl.cmds import top
+
 
 @click.group()
 def cli():
