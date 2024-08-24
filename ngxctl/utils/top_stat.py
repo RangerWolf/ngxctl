@@ -1,7 +1,7 @@
 import re
 import os
 import time
-from utils import file_watcher
+from ngxctl.utils import file_watcher
 import copy as cp
 
 # copied from ngxtop
