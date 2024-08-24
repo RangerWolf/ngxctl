@@ -1,0 +1,50 @@
+# Python bytecode
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Virtual environment
+venv/
+env/
+.venv/
+.env/
+
+# IDE/editor specific files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Coverage reports
+.coverage
+.coverage.*
+*.cover
+*.py,cover
+
+# Mypy
+.mypy_cache/
+
+# Pytest
+.cache/
+pytest_cache/
+
+# Sphinx documentation
+docs/_build/
