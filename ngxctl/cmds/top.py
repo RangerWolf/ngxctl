@@ -69,8 +69,8 @@ def top(conf, group_by, order_by, where, having, limit, follow):
     # TBD: 需要补充一个Top Error Request Stat
 
     # step: 提取log_path & log format
-    log_path_results = log_info_extractor.load_and_extract_log_paths(ngx_cfg_json_dict=payload)
-    log_format_results = log_info_extractor.load_and_extract_log_formats(ngx_cfg_json_dict=payload)
+    log_path_results = config_parser.load_and_extract_log_paths(ngx_cfg_json_dict=payload)
+    log_format_results = config_parser.load_and_extract_log_formats(ngx_cfg_json_dict=payload)
     # 根据log_format提取pattern
     # import pdb; pdb.set_trace()
     log_pattern_dict = top_stat.build_pattern_dict(log_format_results)
