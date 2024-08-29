@@ -47,6 +47,7 @@ DEFAULT_HAVING_CONDITIONS = "1"
 DEFAULT_LIMIT_NUMBER = 20
 DEFAULT_QUERY_NAME = "ServerName Top Stat"
 
+# 29/Aug/2024:00:02:38
 
 QUERY_TEMPLATE = """
     SELECT
@@ -57,7 +58,9 @@ QUERY_TEMPLATE = """
        SUM(status_4xx)          AS '4xx',
        SUM(status_5xx)          AS '5xx',
        AVG(body_bytes_sent)     AS avg_bytes_sent,
-       SUM(body_bytes_sent)     AS sum_bytes_sent
+       SUM(body_bytes_sent)     AS sum_bytes_sent,
+       SUBSTR(MIN(time_local), 1, 20)          AS start_time,
+       SUBSTR(MAX(time_local), 1, 20)          AS end_time
      FROM log
      WHERE {--where}
      GROUP BY {--group-by}
