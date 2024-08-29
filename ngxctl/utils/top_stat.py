@@ -1,7 +1,6 @@
 import re
 import os
 import time
-from ngxctl.utils import file_watcher
 import copy as cp
 
 # copied from ngxtop
@@ -195,7 +194,37 @@ def build_pattern_dict(log_format_results):
     return pattern_dict
 
 
-def monitor_logs(data_queue, log_path_results, follow=True):
+def read_log_file(log_path, follow=False, queue=None):
+    """
+    读取文件的内容并将其放入队列中。
+    如果 follow=True, 则像 tail -f 一样持续监控文件更新。
+    否则，就像 cat 一样只读取一次文件内容。
+    """
+    try:
+        with open(log_path, 'r') as file:
+            # 移动到文件末尾
+            if follow:
+                file.seek(0, os.SEEK_END)
+                while True:
+                    where = file.tell()
+                    line = file.readline()
+                    if not line:
+                        # 如果没有新行并且是 follow 模式，则等待一会儿再尝试读取
+                        time.sleep(1)
+                        file.seek(where)
+                    else:
+                        # 将文件名和行内容放入队列
+                        queue.put({"log_path": log_path, "line": line})
+            else:
+                lines = file.readlines()
+                for line in lines:
+                    # 将文件名和行内容放入队列
+                    queue.put({"log_path": log_path, "line": line})
+    except FileNotFoundError:
+        print(f"Log File not found: {log_path}")
+
+
+def monitor_logs(sql_processor, log_path_results, log_pattern_dict, follow=True):
     """
     {
         "server_name": "www.wuwugames.com",
@@ -217,31 +246,107 @@ def monitor_logs(data_queue, log_path_results, follow=True):
     :param log_path_results:
     :return:
     """
-    watchers = []
+    import threading
+    import time
+    import os
+    from queue import Queue, Empty  # 从 queue 模块导入 Empty 异常
+
+    queue = Queue()  # 创建一个队列用于传递数据
+
+    # 创建读取文件的线程
+    threads = []
     for item in log_path_results:
         log_type = item['log_type']
         if log_type != 'access_log':
             continue
         log_path = item['log_args'][0]
-        watchers.append(file_watcher.NginxLogFileWatcher(
-            log_path=log_path,
-            callback_function=put_line_into_queue,
-            callback_queue=data_queue,
-            follow=follow)
-        )
+        thread = threading.Thread(target=read_log_file, args=(log_path, follow, queue))
+        threads.append(thread)
+        thread.start()
 
-    for watcher in watchers:
-        watcher.daemon = True
-        watcher.start()
+    # 主线程中消费队列的内容
+    while True:
+        try:
+            # 使用 timeout 参数来避免阻塞主线程
+            data = queue.get(timeout=1)  # 超时时间为1秒
+            line = data.get('line')
+            log_path = data.get('log_path')
+            if line and log_path:
+                process_log_line(
+                    line, log_path, log_path_results, log_pattern_dict, sql_processor)
+            queue.task_done()
+        except Empty:
+            pass  # 如果队列为空，跳过本次循环
+
+        # 检查所有线程是否都已经完成
+        all_threads_finished = all(t.is_alive() is False for t in threads)
+        if all_threads_finished and queue.empty():
+            break
+
+    # 确保所有任务都被处理完毕
+    queue.join()
 
 
-def put_line_into_queue(log_path, data_queue, line):
-    if line and line.strip():
-        data = {
-            "log_path": log_path,
-            "line": line,
-        }
-        data_queue.put(data)
+    # watchers = []
+    # for item in log_path_results:
+    #     log_type = item['log_type']
+    #     if log_type != 'access_log':
+    #         continue
+    #     log_path = item['log_args'][0]
+    #     watchers.append(file_watcher.NginxLogFileWatcher(
+    #         log_path=log_path,
+    #         callback_function=put_line_into_queue,
+    #         callback_queue=data_queue,
+    #         follow=follow)
+    #     )
+    #
+    # for watcher in watchers:
+    #     watcher.daemon = True
+    #     watcher.start()
+
+
+# def put_line_into_queue(log_path, data_queue, line):
+#     if line and line.strip():
+#         data = {
+#             "log_path": log_path,
+#             "line": line,
+#         }
+#         data_queue.put(data)
+
+
+def process_log_line(line, log_path, log_path_results, log_pattern_dict, sql_processor):
+    log_args = [x for x in log_path_results if x['log_args'][0] == log_path][0]['log_args']
+    server_name = [x for x in log_path_results if x['log_args'][0] == log_path][0]['server_name']
+    pattern = "combined" if len(log_args) == 1 else log_args[1]
+    log_pattern = log_pattern_dict[pattern]
+    m = log_pattern.match(line.strip())
+    # if "extend" in log_path and m is None:
+    #     print("!!!!")
+    #     import pdb; pdb.set_trace()
+    parsed_data = m.groupdict()
+    if parsed_data:
+        new_data = dict()
+
+        db_columns = sql_processor.column_list.split(",")
+        for field in db_columns:
+            new_data[field] = parsed_data.get(field, "-")  # host / log_path 等参数默认是没有的
+
+            if field in parsed_data and field in INT_FIELDS:  # 存在并且知道是int的参数
+                body_bytes_sent = parsed_data.get(field, "0")
+                new_data[field] = int(body_bytes_sent) if body_bytes_sent.isdigit() else 0
+
+        # 先补充两个不在log line 之中的内容
+        new_data['log_path'] = log_path
+        new_data['server_name'] = server_name
+
+        # 处理status code
+        new_data['status_2xx'] = 1 if parsed_data.get('status', "").startswith("2") else 0
+        new_data['status_3xx'] = 1 if parsed_data.get('status', "").startswith("3") else 0
+        new_data['status_4xx'] = 1 if parsed_data.get('status', "").startswith("4") else 0
+        new_data['status_5xx'] = 1 if parsed_data.get('status', "").startswith("5") else 0
+
+        sql_processor.process([new_data])
+
 
 
 def process_log_data(data_queue, log_path_results, log_pattern_dict, sql_processor):
@@ -278,39 +383,9 @@ def process_log_data(data_queue, log_path_results, log_pattern_dict, sql_process
         line = data.get('line')
         log_path = data.get('log_path')
         if line and log_path:
-            log_args = [x for x in log_path_results if x['log_args'][0] == log_path][0]['log_args']
-            server_name = [x for x in log_path_results if x['log_args'][0] == log_path][0]['server_name']
-            pattern = "combined" if len(log_args) == 1 else log_args[1]
-            log_pattern = log_pattern_dict[pattern]
-            m = log_pattern.match(line.strip())
-            # if "extend" in log_path and m is None:
-            #     print("!!!!")
-            #     import pdb; pdb.set_trace()
-            parsed_data = m.groupdict()
-            if parsed_data:
-                new_data = dict()
-
-                db_columns = sql_processor.column_list.split(",")
-                for field in db_columns:
-                    new_data[field] = parsed_data.get(field, "-")  # host / log_path 等参数默认是没有的
-
-                    if field in parsed_data and field in INT_FIELDS:  # 存在并且知道是int的参数
-                        body_bytes_sent = parsed_data.get(field, "0")
-                        new_data[field] = int(body_bytes_sent) if body_bytes_sent.isdigit() else 0
-
-                # 先补充两个不在log line 之中的内容
-                new_data['log_path'] = log_path
-                new_data['server_name'] = server_name
-
-                # 处理status code
-                new_data['status_2xx'] = 1 if parsed_data.get('status', "").startswith("2") else 0
-                new_data['status_3xx'] = 1 if parsed_data.get('status', "").startswith("3") else 0
-                new_data['status_4xx'] = 1 if parsed_data.get('status', "").startswith("4") else 0
-                new_data['status_5xx'] = 1 if parsed_data.get('status', "").startswith("5") else 0
-
-                sql_processor.process([new_data])
-
-        data_queue.task_done()
+            process_log_line(line, log_path, log_path_results, log_pattern_dict, sql_processor)
+#
+#         data_queue.task_done()
 
 
 # def display_content(content):

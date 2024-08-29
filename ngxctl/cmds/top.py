@@ -92,23 +92,32 @@ def top(conf, group_by, order_by, where, having, limit, follow):
         fields=final_fields
     )
 
-    display_report(processor)
+    if follow:
+        display_report(processor)
 
     # 通过队列在多线程之间传输数据
-    data_queue = Queue()
-
     top_stat.monitor_logs(
-        data_queue=data_queue,
-        log_path_results=log_path_results,
-        follow=follow
+        processor, log_path_results, log_pattern_dict, follow
     )
-    top_stat.process_log_data(
-        data_queue=data_queue,
-        log_path_results=log_path_results,
-        log_pattern_dict=log_pattern_dict,
-        sql_processor=processor
-    )
-    data_queue.join()
+
+    if not follow:
+        output = processor.report()
+        print(output)
+
+    # data_queue = Queue()
+    #
+    # top_stat.monitor_logs(
+    #     data_queue=data_queue,
+    #     log_path_results=log_path_results,
+    #     follow=follow
+    # )
+    # top_stat.process_log_data(
+    #     data_queue=data_queue,
+    #     log_path_results=log_path_results,
+    #     log_pattern_dict=log_pattern_dict,
+    #     sql_processor=processor
+    # )
+    # data_queue.join()
 
 
 if __name__ == "__main__":
