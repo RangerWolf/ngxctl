@@ -1,4 +1,5 @@
-# ngxctl/top.py
+# ngxctl/cmds/top.py
+
 import json
 import os.path
 from queue import Queue
@@ -9,16 +10,7 @@ import crossplane
 from ngxctl.utils import top_stat, config_parser, sqlite_utils
 from ngxctl.utils.misc_utils import display_report
 
-
-@click.command(help="""\
-Analyze and display top Nginx log statistics.
-
-Examples:
-
-  ngxtools top --conf /etc/nginx/nginx.conf --group-by remote_addr,http_user_agent
-  ngxtools top --order-by "avg(bytes_sent) * count" --filter 'status==404'
-  ngxtools top --no-follow
-""")
+@click.command()
 @click.option('-c', '--conf', default='/etc/nginx/nginx.conf',
               help='Specify the Nginx configuration file. Default is /etc/nginx/nginx.conf.')
 @click.option('-g', '--group-by', default=top_stat.DEFAULT_GROUP_BY_FIELDS,
@@ -35,6 +27,20 @@ Examples:
               help='Read the entire log file at once instead of following new lines.')
 def top(conf, group_by, order_by, where, having, limit, follow):
     """
+    Analyze and display top Nginx log statistics.
+
+    Examples:
+
+    ngxctl top
+
+    ngxctl top --conf /etc/nginx/nginx.conf
+
+    ngxctl top --group-by remote_addr,http_user_agent
+
+    ngxctl top -w 'status==404' --no-follow
+
+    \f
+
     :param conf:
     :param group_by:
     :param order_by:
@@ -121,4 +127,4 @@ def top(conf, group_by, order_by, where, having, limit, follow):
 
 
 if __name__ == "__main__":
-    run()
+    top()
