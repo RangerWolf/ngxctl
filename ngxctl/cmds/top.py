@@ -33,7 +33,7 @@ Examples:
               help='Limit to top lines')
 @click.option('--follow/--no-follow', default=True,
               help='Read the entire log file at once instead of following new lines.')
-def top(conf, group_by, order_by, where, having, limit, follow):
+def run(conf, group_by, order_by, where, having, limit, follow):
     """
     :param conf:
     :param group_by:
@@ -121,4 +121,4 @@ def top(conf, group_by, order_by, where, having, limit, follow):
 
 
 if __name__ == "__main__":
-    top()
+    run()
