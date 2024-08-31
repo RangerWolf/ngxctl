@@ -10,7 +10,7 @@ def cli():
     pass
 
 # Add subcommands to the cli group
-cli.add_command(top.top)
+cli.add_command(top.run)
 
 if __name__ == "__main__":
     cli()
