@@ -108,7 +108,7 @@ def detect_extend_fields(cli_params, known_columns):
 
 
 
-def get_log_format_fields(log_format_results):
+def get_log_format_known_fields(log_format_results):
     """
     根据log_format 里面的设定，把用到的nginx的变量名都抽取出来
     比如：

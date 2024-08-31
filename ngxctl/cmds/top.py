@@ -6,6 +6,7 @@ from queue import Queue
 
 import click
 import crossplane
+import tabulate
 
 from ngxctl.utils import top_stat, config_parser, sqlite_utils
 from ngxctl.utils.misc_utils import display_report
@@ -25,7 +26,9 @@ from ngxctl.utils.misc_utils import display_report
               help='Limit to top lines')
 @click.option('--follow/--no-follow', default=True,
               help='Read the entire log file at once instead of following new lines.')
-def top(conf, group_by, order_by, where, having, limit, follow):
+@click.option('--show-vars', is_flag=True,
+              help='list all params ara available')
+def top(conf, group_by, order_by, where, having, limit, follow, show_vars):
     """
     Analyze and display top Nginx log statistics.
 
@@ -48,6 +51,7 @@ def top(conf, group_by, order_by, where, having, limit, follow):
     :param having:
     :param limit:
     :param follow:
+    :param show_vars:
     :return:
     """
     if not os.path.exists(conf):
@@ -77,11 +81,18 @@ def top(conf, group_by, order_by, where, having, limit, follow):
     # step: 提取log_path & log format
     log_path_results = config_parser.load_and_extract_log_paths(ngx_cfg_json_dict=payload)
     log_format_results = config_parser.load_and_extract_log_formats(ngx_cfg_json_dict=payload)
+
+    if show_vars:
+        variables = config_parser.get_log_format_used_fields(log_path_results, log_format_results)
+        table_data = [[item] for item in variables]
+        print(tabulate.tabulate(table_data, headers=['Variables'], tablefmt='orgtbl'))
+        return
+
     # 根据log_format提取pattern
     # import pdb; pdb.set_trace()
     log_pattern_dict = top_stat.build_pattern_dict(log_format_results)
     # 根据log format提取所有用到的field，比如http_user_agent
-    log_format_fields = top_stat.get_log_format_fields(log_format_results)
+    log_format_fields = top_stat.get_log_format_known_fields(log_format_results)
 
     query_str = [
         where, group_by, having, order_by

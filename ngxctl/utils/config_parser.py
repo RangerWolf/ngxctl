@@ -1,9 +1,76 @@
 import json
 import os.path
+import re
 import time
 import copy as cp
 
 from jsonpath_ng.ext import parse
+
+from ngxctl.utils.top_stat import LOG_FORMAT_COMBINED, LOG_FORMAT_ERROR
+
+
+def get_log_format_used_fields(log_path_results, log_format_results):
+    """
+    log_path_results
+    [
+        {
+        "file_name": "/etc/nginx/sites-enabled/blog.flyml.net.conf",
+        "log_type": "access_log",
+        "log_args": [
+          "/var/log/nginx/blog.flyml.net.log"
+        ],
+        "server_name": "blog.flyml.net"
+      }
+    ]
+
+    log_format_results
+    {
+      "extended": "$remote_addr - $remote_user [$time_local] \"$request\" $status $body_bytes_sent \"$http_referer\" \"$http_user_agent\" $request_id"
+    }
+
+
+    :param log_path_results:
+    :param log_format_results:
+    :return:
+    """
+    # get all used log_formats
+    used_formats = []
+    for item in log_path_results:
+        if item['log_type'] == 'access_log':
+            log_args = item['log_args']
+            if len(log_args) == 1:
+                used_formats.append('combined')
+            else:
+                used_formats.append(''.join(log_args[1:]))
+
+    used_formats = list(set(used_formats))
+
+    def __extract_variables(log_format):
+        # 正则表达式匹配以$开头的变量
+        pattern = r'\$(\w+)'
+        # 使用findall方法找到所有匹配项
+        variables = re.findall(pattern, log_format)
+        return variables
+
+    # 逐步format遍历，取出用到的变量
+    used_variables = []
+    for f in used_formats:
+        if f == 'combined':
+            used_variables.extend(__extract_variables(LOG_FORMAT_COMBINED))
+        elif f == 'error':
+            used_variables.extend(__extract_variables(LOG_FORMAT_ERROR))
+        else:
+            # custom log format
+            log_format = log_format_results.get(f)
+            if log_format:
+                used_variables.extend(__extract_variables(log_format))
+            else:
+                raise Exception(f"Log format[{f}] not found!")
+
+    used_variables = list(set(used_variables))
+    sorted(used_variables)
+
+    return used_variables
 
 
 def load_and_extract_log_formats(ngx_cfg_json_path=None, ngx_cfg_json_dict=None):
