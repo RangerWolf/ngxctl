@@ -19,17 +19,17 @@ Examples:
   ngxtools top --order-by "avg(bytes_sent) * count" --filter 'status==404'
   ngxtools top --no-follow
 """)
-@click.option('--conf', default='/etc/nginx/nginx.conf',
+@click.option('-c', '--conf', default='/etc/nginx/nginx.conf',
               help='Specify the Nginx configuration file. Default is /etc/nginx/nginx.conf.')
-@click.option('--group-by', default=top_stat.DEFAULT_GROUP_BY_FIELDS,
+@click.option('-g', '--group-by', default=top_stat.DEFAULT_GROUP_BY_FIELDS,
               help='Group the results by the specified fields, e.g., server_name,remote_addr, etc.')
-@click.option('--order-by', default=top_stat.DEFAULT_ORDER_BY_FIELDS,
+@click.option('-o', '--order-by', default=top_stat.DEFAULT_ORDER_BY_FIELDS,
               help='Order the results by a specified criteria, e.g., avg(bytes_sent) * count.')
 @click.option('--where', default=top_stat.DEFAULT_WHERE_CONDITIONS,
-              help='Apply a filter to the raw log data before status, e.g., status==404.')
+              help='Apply a filter to the raw log data before stat, e.g., status==404.')
 @click.option('--having', default=top_stat.DEFAULT_HAVING_CONDITIONS,
               help='Apply a filter to stat result, e.g., remote_addr==1.2.3.4')
-@click.option('--limit', default=top_stat.DEFAULT_LIMIT_NUMBER,
+@click.option('-n', '--limit', default=top_stat.DEFAULT_LIMIT_NUMBER,
               help='Limit to top lines')
 @click.option('--follow/--no-follow', default=True,
               help='Read the entire log file at once instead of following new lines.')
