@@ -28,7 +28,9 @@ from ngxctl.utils.misc_utils import display_report
               help='Read the entire log file at once instead of following new lines.')
 @click.option('--show-vars', is_flag=True,
               help='list all params ara available')
-def top(conf, group_by, order_by, where, having, limit, follow, show_vars):
+@click.option('--show-logs', is_flag=True,
+              help='list all logs')
+def top(conf, group_by, order_by, where, having, limit, follow, show_vars, show_logs):
     """
     Analyze and display top Nginx log statistics.
 
@@ -86,6 +88,25 @@ def top(conf, group_by, order_by, where, having, limit, follow, show_vars):
         variables = config_parser.get_log_format_used_fields(log_path_results, log_format_results)
         table_data = [[item] for item in variables]
         print(tabulate.tabulate(table_data, headers=['Variables'], tablefmt='orgtbl'))
+        return
+
+    if show_logs:
+        table_data = []
+        headers = ['server_name', 'file_name', 'log_path']
+        for item in log_path_results:
+            if item['log_type'] == 'access_log':
+                row = []
+                for header in headers:
+                    if header == 'log_path':
+                        row.append(
+                            item.get('log_args')[0]
+                        )
+                    else:
+                        row.append(
+                            item.get(header, '')
+                        )
+                table_data.append(row)
+        print(tabulate.tabulate(table_data, headers=headers, tablefmt='orgtbl'))
         return
 
     # 根据log_format提取pattern
