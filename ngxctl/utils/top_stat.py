@@ -3,6 +3,8 @@ import os
 import time
 import copy as cp
 
+from ngxctl.utils import file_watcher
+
 # copied from ngxtop
 LOG_FORMAT_COMBINED = '$remote_addr - $remote_user [$time_local] ' \
                       '"$request" $status $body_bytes_sent ' \
@@ -18,8 +20,6 @@ LOG_FORMAT_EXTENDED = '$remote_addr - $remote_user [$time_local] '\
 
 LOG_FORMAT_ERROR    = '$time_local [$log_level] $pid#$tid: *$cid $message'
 
-REGEX_SPECIAL_CHARS = r'([\.\*\+\?\|\(\)\{\}\[\]])'
-REGEX_LOG_FORMAT_VARIABLE = r'\$([a-zA-Z0-9\_]+)'
 
 TARGET_FIELDS = [
     "server_name",
@@ -108,42 +108,42 @@ def detect_extend_fields(cli_params, known_columns):
 
 
 
-def get_log_format_known_fields(log_format_results):
-    """
-    根据log_format 里面的设定，把用到的nginx的变量名都抽取出来
-    比如：
-    {
-      "log_json": "{\"@timestamp\": \"$time_local\",  \"remote_addr\": \"$remote_addr\",  \"referer\": \"$http_referer\",  \"request\": \"$request\",  \"status\": $status,  \"bytes\": $body_bytes_sent,  \"agent\": \"$http_user_agent\",  \"x_forwarded\": \"$http_x_forwarded_for\",  \"up_addr\": \"$upstream_addr\", \"up_host\": \"$upstream_http_host\", \"up_resp_time\": \"$upstream_response_time\", \"request_time\": \"$request_time\"  }"
-    }
-
-    "$time_local"\"$remote_addr"就是possible fields
-
-    :param log_format_results:
-    :return:
-    """
-    fields = set()
-
-    def extract_fields(log_format):
-        results = [g for g, c in re.findall(r'\$(\w+)|(.)', log_format) if g]
-        return results
-
-    fields.update(
-        extract_fields(LOG_FORMAT_COMBINED)
-    )
-    fields.update(
-        extract_fields(LOG_FORMAT_ERROR)
-    )
-    fields.update(
-        extract_fields(LOG_FORMAT_COMMON)
-    )
-
-    if log_format_results:
-        for name in log_format_results:
-            fields.update(
-                extract_fields(log_format_results[name])
-            )
-
-    return list(fields)
+# def get_log_format_known_fields(log_format_results):
+#     """
+#     根据log_format 里面的设定，把用到的nginx的变量名都抽取出来
+#     比如：
+#     {
+#       "log_json": "{\"@timestamp\": \"$time_local\",  \"remote_addr\": \"$remote_addr\",  \"referer\": \"$http_referer\",  \"request\": \"$request\",  \"status\": $status,  \"bytes\": $body_bytes_sent,  \"agent\": \"$http_user_agent\",  \"x_forwarded\": \"$http_x_forwarded_for\",  \"up_addr\": \"$upstream_addr\", \"up_host\": \"$upstream_http_host\", \"up_resp_time\": \"$upstream_response_time\", \"request_time\": \"$request_time\"  }"
+#     }
+#
+#     "$time_local"\"$remote_addr"就是possible fields
+#
+#     :param log_format_results:
+#     :return:
+#     """
+#     fields = set()
+#
+#     def extract_fields(log_format):
+#         results = [g for g, c in re.findall(r'\$(\w+)|(.)', log_format) if g]
+#         return results
+#
+#     fields.update(
+#         extract_fields(LOG_FORMAT_COMBINED)
+#     )
+#     fields.update(
+#         extract_fields(LOG_FORMAT_ERROR)
+#     )
+#     fields.update(
+#         extract_fields(LOG_FORMAT_COMMON)
+#     )
+#
+#     if log_format_results:
+#         for name in log_format_results:
+#             fields.update(
+#                 extract_fields(log_format_results[name])
+#             )
+#
+#     return list(fields)
 
 
 def build_pattern_dict(log_format_results):
@@ -229,95 +229,44 @@ def read_log_file(log_path, follow=False, queue=None):
 
 def monitor_logs(sql_processor, log_path_results, log_pattern_dict, follow=True):
     """
-    {
-        "server_name": "www.wuwugames.com",
-        "file_name": "/etc/nginx/sites-enabled/www.wuwugames.com.conf",
-        "log_type": "access_log",
-        "log_args": [
-          "/var/log/nginx/shushu.log",
-          "log_json"
-        ]
-      },
-      {
-        "server_name": "www.wuwugames.com",
-        "file_name": "/etc/nginx/sites-enabled/www.wuwugames.com.conf",
-        "log_type": "error_log",
-        "log_args": [
-          "/www/wwwlogs/www.wuwugames.com.error.log"
-        ]
-      }
-    :param log_path_results:
-    :return:
+        {
+            "server_name": "www.wuwugames.com",
+            "file_name": "/etc/nginx/sites-enabled/www.wuwugames.com.conf",
+            "log_type": "access_log",
+            "log_args": [
+              "/var/log/nginx/shushu.log",
+              "log_json"
+            ]
+          },
+          {
+            "server_name": "www.wuwugames.com",
+            "file_name": "/etc/nginx/sites-enabled/www.wuwugames.com.conf",
+            "log_type": "error_log",
+            "log_args": [
+              "/www/wwwlogs/www.wuwugames.com.error.log"
+            ]
+          }
+        :param sql_processor:
+        :param log_path_results:
+        :param log_pattern_dict
+        :param follow
+        :return:
     """
-    import threading
-    import time
-    import os
-    from queue import Queue, Empty  # 从 queue 模块导入 Empty 异常
 
-    queue = Queue()  # 创建一个队列用于传递数据
+    log_paths = []
 
-    # 创建读取文件的线程
-    threads = []
     for item in log_path_results:
         log_type = item['log_type']
         if log_type != 'access_log':
             continue
         log_path = item['log_args'][0]
-        thread = threading.Thread(target=read_log_file, args=(log_path, follow, queue))
-        threads.append(thread)
-        thread.start()
+        log_paths.append(log_path)
 
-    # 主线程中消费队列的内容
-    while True:
-        try:
-            # 使用 timeout 参数来避免阻塞主线程
-            data = queue.get(timeout=1)  # 超时时间为1秒
-            line = data.get('line')
-            log_path = data.get('log_path')
-            if line and log_path:
-                process_log_line(
-                    line, log_path, log_path_results, log_pattern_dict, sql_processor)
-            queue.task_done()
-        except Empty:
-            pass  # 如果队列为空，跳过本次循环
-
-        # 检查所有线程是否都已经完成
-        all_threads_finished = all(t.is_alive() is False for t in threads)
-        if all_threads_finished and queue.empty():
-            break
-
-    # 确保所有任务都被处理完毕
-    queue.join()
+    file_watcher.watch_logs(log_paths, process_top_log_line, follow,
+                            log_path_results, log_pattern_dict, sql_processor)
 
 
-    # watchers = []
-    # for item in log_path_results:
-    #     log_type = item['log_type']
-    #     if log_type != 'access_log':
-    #         continue
-    #     log_path = item['log_args'][0]
-    #     watchers.append(file_watcher.NginxLogFileWatcher(
-    #         log_path=log_path,
-    #         callback_function=put_line_into_queue,
-    #         callback_queue=data_queue,
-    #         follow=follow)
-    #     )
-    #
-    # for watcher in watchers:
-    #     watcher.daemon = True
-    #     watcher.start()
-
-
-# def put_line_into_queue(log_path, data_queue, line):
-#     if line and line.strip():
-#         data = {
-#             "log_path": log_path,
-#             "line": line,
-#         }
-#         data_queue.put(data)
-
-
-def process_log_line(line, log_path, log_path_results, log_pattern_dict, sql_processor):
+def process_top_log_line(line, log_path, log_path_results, log_pattern_dict, sql_processor):
     log_args = [x for x in log_path_results if x['log_args'][0] == log_path][0]['log_args']
     server_name = [x for x in log_path_results if x['log_args'][0] == log_path][0]['server_name']
     pattern = "combined" if len(log_args) == 1 else log_args[1]
@@ -352,43 +301,43 @@ def process_log_line(line, log_path, log_path_results, log_pattern_dict, sql_pro
 
 
 
-def process_log_data(data_queue, log_path_results, log_pattern_dict, sql_processor):
-    """
-    主线程中的函数，从队列中获取数据并处理。
-
-    log_path_results Sample:
-    {
-        "server_name": "www.wuwugames.com",
-        "file_name": "/etc/nginx/sites-enabled/www.wuwugames.com.conf",
-        "log_type": "access_log",
-        "log_args": [
-          "/var/log/nginx/shushu.log",
-          "log_json"
-        ]
-      },
-      {
-        "server_name": "www.wuwugames.com",
-        "file_name": "/etc/nginx/sites-enabled/www.wuwugames.com.conf",
-        "log_type": "error_log",
-        "log_args": [
-          "/www/wwwlogs/www.wuwugames.com.error.log"
-        ]
-      }
-    :param log_path_results:
-    :return:
-
-    """
-    while True:
-        data = data_queue.get()  # 从队列中获取数据
-        if data is None:
-            break
-        # print(f"!!!!!!!!!!!!!!!!!!!Processing data: {data}")
-        line = data.get('line')
-        log_path = data.get('log_path')
-        if line and log_path:
-            process_log_line(line, log_path, log_path_results, log_pattern_dict, sql_processor)
+# def process_log_data(data_queue, log_path_results, log_pattern_dict, sql_processor):
+#     """
+#     主线程中的函数，从队列中获取数据并处理。
 #
-#         data_queue.task_done()
+#     log_path_results Sample:
+#     {
+#         "server_name": "www.wuwugames.com",
+#         "file_name": "/etc/nginx/sites-enabled/www.wuwugames.com.conf",
+#         "log_type": "access_log",
+#         "log_args": [
+#           "/var/log/nginx/shushu.log",
+#           "log_json"
+#         ]
+#       },
+#       {
+#         "server_name": "www.wuwugames.com",
+#         "file_name": "/etc/nginx/sites-enabled/www.wuwugames.com.conf",
+#         "log_type": "error_log",
+#         "log_args": [
+#           "/www/wwwlogs/www.wuwugames.com.error.log"
+#         ]
+#       }
+#     :param log_path_results:
+#     :return:
+#
+#     """
+#     while True:
+#         data = data_queue.get()  # 从队列中获取数据
+#         if data is None:
+#             break
+#         # print(f"!!!!!!!!!!!!!!!!!!!Processing data: {data}")
+#         line = data.get('line')
+#         log_path = data.get('log_path')
+#         if line and log_path:
+#             process_top_log_line(line, log_path, log_path_results, log_pattern_dict, sql_processor)
+# #
+# #         data_queue.task_done()
 
 
 # def display_content(content):

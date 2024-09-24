@@ -5,15 +5,12 @@ import os.path
 from queue import Queue
 
 import click
-import crossplane
-import tabulate
+
 
 from ngxctl.utils import top_stat, config_parser, sqlite_utils
 from ngxctl.utils.misc_utils import display_report
 
 @click.command()
-@click.option('-c', '--conf', default='/etc/nginx/nginx.conf',
-              help='Specify the Nginx configuration file. Default is /etc/nginx/nginx.conf.')
 @click.option('-g', '--group-by', default=top_stat.DEFAULT_GROUP_BY_FIELDS,
               help='Group the results by the specified fields, e.g., server_name,remote_addr, etc.')
 @click.option('-o', '--order-by', default=top_stat.DEFAULT_ORDER_BY_FIELDS,
@@ -26,11 +23,8 @@ from ngxctl.utils.misc_utils import display_report
               help='Limit to top lines')
 @click.option('--follow/--no-follow', default=True,
               help='Read the entire log file at once instead of following new lines.')
-@click.option('--show-vars', is_flag=True,
-              help='list all params ara available')
-@click.option('--show-logs', is_flag=True,
-              help='list all logs')
-def top(conf, group_by, order_by, where, having, limit, follow, show_vars, show_logs):
+@click.pass_context
+def top(ctx, group_by, order_by, where, having, limit, follow):
     """
     Analyze and display top Nginx log statistics.
 
@@ -46,26 +40,17 @@ def top(conf, group_by, order_by, where, having, limit, follow, show_vars, show_
 
     \f
 
-    :param conf:
+    :param ctx:
     :param group_by:
     :param order_by:
     :param where:
     :param having:
     :param limit:
     :param follow:
-    :param show_vars:
     :return:
     """
-    if not os.path.exists(conf):
-        raise FileNotFoundError(f"{conf} does not exist")
-
-    # step: 先尝试解析conf
-    if conf.endswith(".json"):
-        payload = json.load(open(conf, 'r', encoding="utf-8"))
-    else:
-        payload = crossplane.parse(conf)
-
     # 构建SQL processor 对象
+    # TBD: 需要补充一个Top Error Request Stat
     queries = list()
     sql = top_stat.build_query(
         where, group_by, having, order_by, limit
@@ -78,42 +63,18 @@ def top(conf, group_by, order_by, where, having, limit, follow, show_vars, show_
     else:
         queries.append(sql)
 
-    # TBD: 需要补充一个Top Error Request Stat
 
-    # step: 提取log_path & log format
-    log_path_results = config_parser.load_and_extract_log_paths(ngx_cfg_json_dict=payload)
-    log_format_results = config_parser.load_and_extract_log_formats(ngx_cfg_json_dict=payload)
-
-    if show_vars:
-        variables = config_parser.get_log_format_used_fields(log_path_results, log_format_results)
-        table_data = [[item] for item in variables]
-        print(tabulate.tabulate(table_data, headers=['Variables'], tablefmt='orgtbl'))
-        return
-
-    if show_logs:
-        table_data = []
-        headers = ['server_name', 'file_name', 'log_path']
-        for item in log_path_results:
-            if item['log_type'] == 'access_log':
-                row = []
-                for header in headers:
-                    if header == 'log_path':
-                        row.append(
-                            item.get('log_args')[0]
-                        )
-                    else:
-                        row.append(
-                            item.get(header, '')
-                        )
-                table_data.append(row)
-        print(tabulate.tabulate(table_data, headers=headers, tablefmt='orgtbl'))
-        return
+    # step: 从ctx之中读取log_path_results & log_format_results
+    log_path_results = ctx.obj['log_path_results']
+    log_format_results = ctx.obj['log_format_results']
 
     # 根据log_format提取pattern
-    # import pdb; pdb.set_trace()
-    log_pattern_dict = top_stat.build_pattern_dict(log_format_results)
+    log_pattern_dict = config_parser.build_pattern_dict(log_format_results)
     # 根据log format提取所有用到的field，比如http_user_agent
-    log_format_fields = top_stat.get_log_format_known_fields(log_format_results)
+
+    # log_format_fields 感觉应该复用config_parser里面的函数，跟get_log_format_known_fields应该是重复的
+    # log_format_fields = top_stat.get_log_format_known_fields(log_format_results)
+    log_format_fields = config_parser.get_log_format_used_fields(log_path_results, log_format_results)
 
     query_str = [
         where, group_by, having, order_by
@@ -141,21 +102,6 @@ def top(conf, group_by, order_by, where, having, limit, follow, show_vars, show_
     if not follow:
         output = processor.report()
         print(output)
-
-    # data_queue = Queue()
-    #
-    # top_stat.monitor_logs(
-    #     data_queue=data_queue,
-    #     log_path_results=log_path_results,
-    #     follow=follow
-    # )
-    # top_stat.process_log_data(
-    #     data_queue=data_queue,
-    #     log_path_results=log_path_results,
-    #     log_pattern_dict=log_pattern_dict,
-    #     sql_processor=processor
-    # )
-    # data_queue.join()
 
 
 if __name__ == "__main__":

@@ -9,6 +9,9 @@ from jsonpath_ng.ext import parse
 from ngxctl.utils.top_stat import LOG_FORMAT_COMBINED, LOG_FORMAT_ERROR
 
 
+REGEX_SPECIAL_CHARS = r'([\.\*\+\?\|\(\)\{\}\[\]])'
+REGEX_LOG_FORMAT_VARIABLE = r'\$([a-zA-Z0-9\_]+)'
+
 def get_log_format_used_fields(log_path_results, log_format_results):
     """
     log_path_results
@@ -103,7 +106,7 @@ def load_and_extract_log_formats(ngx_cfg_json_path=None, ngx_cfg_json_dict=None)
     return log_format_results
 
 
-def load_and_extract_log_paths(ngx_cfg_json_path=None, ngx_cfg_json_dict=None):
+def load_and_extract_log_paths(ngx_cfg_json_path=None, ngx_cfg_json_dict=None, debug=False):
     if not ngx_cfg_json_dict and not ngx_cfg_json_path:
         raise Exception("Empty data and data File")
 
@@ -124,6 +127,10 @@ def load_and_extract_log_paths(ngx_cfg_json_path=None, ngx_cfg_json_dict=None):
         "/etc/nginx/sites-available",
         "/etc/nginx/conf.d",
     ]
+
+    if debug:
+        # 当前工作目录
+        target_prefixes.append(os.getcwd())
 
     log_path_results = []
 
@@ -173,6 +180,57 @@ def load_and_extract_log_paths(ngx_cfg_json_path=None, ngx_cfg_json_dict=None):
                 # print("cost time: t1-t0:", (t1 - t0))
                 # print("cost time: t2-t1:", (t2 - t1))
     return log_path_results
+
+
+def build_pattern_dict(log_format_results):
+    """
+    Sample:
+    {
+      "log_json": "{\"@timestamp\": \"$time_local\",  \"remote_addr\": \"$remote_addr\",  \"referer\": \"$http_referer\",  \"request\": \"$request\",  \"status\": $status,  \"bytes\": $body_bytes_sent,  \"agent\": \"$http_user_agent\",  \"x_forwarded\": \"$http_x_forwarded_for\",  \"up_addr\": \"$upstream_addr\", \"up_host\": \"$upstream_http_host\", \"up_resp_time\": \"$upstream_response_time\", \"request_time\": \"$request_time\"  }"
+    }
+
+    :param log_format_results:
+    :return:
+    """
+
+    # def build_pattern(log_format):
+    #     """This function should also work, copy pattern from stackoverflow, but need to add $ to the end"""
+    #     regex = ''.join(
+    #         '(?P<' + g + '>.*?)' if g else re.escape(c)
+    #         for g, c in re.findall(r'\$(\w+)|(.)', log_format))
+    #     regex += "$"
+    #     return re.compile(regex)
+
+    def build_pattern(log_format):
+        """
+        Build regular expression to parse given format.
+        this function is copied from Ngxtop lib
+        :param log_format: format string to parse
+        :return: regular expression to parse given format
+        """
+        # if log_format == 'combined':
+        #     log_format = LOG_FORMAT_COMBINED
+        # elif log_format == 'common':
+        #     log_format = LOG_FORMAT_COMMON
+        # if log_format == "extended":
+        #     log_format = LOG_FORMAT_EXTENDED
+        pattern = re.sub(REGEX_SPECIAL_CHARS, r'\\\1', log_format)
+        pattern = re.sub(REGEX_LOG_FORMAT_VARIABLE, '(?P<\\1>.*)', pattern)
+        return re.compile(pattern)
+
+    pattern_dict = dict()
+
+    # 先处理access log 的默认格式
+    pattern_dict['combined'] = build_pattern(LOG_FORMAT_COMBINED)
+
+    # 处理默认的error log格式
+    pattern_dict['error'] = build_pattern(LOG_FORMAT_ERROR)
+
+    if log_format_results:
+        for name in log_format_results:
+            pattern_dict[name] = build_pattern(log_format_results[name])
+
+    return pattern_dict
 
 
 if __name__ == '__main__':
