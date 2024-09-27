@@ -2,7 +2,12 @@ import sqlite3
 import time
 import logging
 from contextlib import closing
+from turtledemo.penrose import start
+
 import tabulate
+
+from ngxctl.utils.common_utils import calc_nginx_time_diff
+
 
 # This is copied from ngxtop
 
@@ -44,8 +49,9 @@ class SQLProcessor(object):
             return ''
         count = self.count()
         duration = time.time() - self.begin
-        status = 'running for %.0f seconds, %d records processed: %.2f req/sec'
-        output = [status % (duration, count, count / duration)]
+        # no-follow的情况下，req/s 的数值并不准确，因此把数值放到group query之中
+        status = 'running for %.0f seconds, %d records processed'
+        output = [status % (duration, count)]
         with closing(self.conn.cursor()) as cursor:
             for query in self.report_queries:
                 if isinstance(query, tuple):
@@ -53,8 +59,25 @@ class SQLProcessor(object):
                 else:
                     label = ''
                 cursor.execute(query)
-                columns = (d[0] for d in cursor.description)
-                result = tabulate.tabulate(cursor.fetchall(), headers=columns, tablefmt='orgtbl', floatfmt='.3f')
+                columns = list(d[0] for d in cursor.description)
+
+                all_rows = cursor.fetchall()
+
+                count_idx = columns.index('count')
+                start_time_idx = columns.index('start_time')
+                end_time_idx = columns.index('end_time')
+
+                if count_idx >= 0 and start_time_idx >= 0 and end_time_idx >= 0:
+                    new_rows = []
+                    for i in range(0, len(all_rows)):
+                        cur_row = list(all_rows[i])
+                        time_span = calc_nginx_time_diff(cur_row[start_time_idx], cur_row[end_time_idx])
+                        req_per_second = f"{ cur_row[count_idx] / time_span:.2f}"
+                        cur_row.append(req_per_second)
+                        new_rows.append(cur_row)
+                    columns.append('req/s')
+
+                result = tabulate.tabulate(new_rows, headers=columns, tablefmt='orgtbl', floatfmt='.3f')
                 output.append('%s\n%s' % (label, result))
         return '\n\n'.join(output)
 
