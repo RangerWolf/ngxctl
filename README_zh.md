@@ -1,38 +1,32 @@
-# ngxctl - Real-time Metrics for Nginx Server
+# `ngxctl` - real-time metrics for nginx server
 
-## Project Overview
-1. Rebuilt based on the [ngxtop](https://github.com/lebinh/ngxtop) project and adapted for actual usage scenarios.
-2. The core principle remains the same: parsing log contents and storing them in SQLite, displaying top statistics in real-time using GROUP BY. As such, it is not suitable for long-term operation.
+## 项目介绍
+1. 参考ngxtop这个项目，重新构建，并根据实际情况进行了改造
+2. 基本原理还是把log内容解析并存入sqlite，实时进行group by 显示top的内容。因此不宜长时间运行
 
-## Installation
+## 安装
 ```shell
-# Install from PyPI
+# install from pypi
 pip install ngxtop
 
-# Install from Tencent Cloud source
+
+# install from tencent cloud source
 pip install ngxtop --index-url https://mirrors.cloud.tencent.com/pypi/simple --trusted-host mirrors.cloud.tencent.com
-
 ```
 
+## 运行
 
-## Usage
-### Display Configured Log Files
-```shell
-# cmd
-ngxctl sites
-
-# output example
-| server_name         | file_name                                       | log_path                                  |
-|---------------------+-------------------------------------------------+-------------------------------------------|
-| www.test1.net...    | /etc/nginx/sites-enabled/www.test1.net.conf     | /var/log/nginx/www.test1.net-extended.log |
-
-```
+### 显示当前配置了哪些log
+| server_name         | file_name                                         | log_path                                  |
+|---------------------+---------------------------------------------------+-------------------------------------------|
+| www.test1.net...    | /etc/nginx/sites-enabled/www.test1.net.conf       | /var/log/nginx/www.test1.net-extended.log |
 
 
-### Display Variables Used in Access Logs
+### 显示access log一共使用了哪些变量
 ```shell
 # cmd
 ngxctl vars
+
 
 # output
 | Variables       |
@@ -48,24 +42,20 @@ ngxctl vars
 | request_id      |
 ```
 
-
-### Display Top Statistics
-#### Basic Command
-
+### 显示Top统计
+#### 基本命令
 ```shell
-# cmd (output omitted)
+# cmd (内容略)
 running for 7 seconds, 0 records processed
 
 ServerName Top Stat
 | server_name   | count   | 2xx   | 3xx   | 4xx   | 5xx   | avg_bytes_sent   | sum_bytes_sent   | start_time   | end_time   | req/s   |
 |---------------+---------+-------+-------+-------+-------+------------------+------------------+--------------+------------+---------|
 
-| Detailed content is omitted here |
-
+| detai content is ommited here |
 ```
 
-
-#### Supported Parameters
+#### 支持的参数
 ```shell
 Usage: ngxctl top [OPTIONS]
 
@@ -89,16 +79,18 @@ Options:
   --where TEXT            Apply a filter to the raw log data before stat,
                           e.g., status==404.
   --having TEXT           Apply a filter to stat result, e.g.,
-                          remote_addr==1.2.3.4.
-  -n, --limit INTEGER     Limit to top lines.
+                          remote_addr==1.2.3.4
+  -n, --limit INTEGER     Limit to top lines
   --follow / --no-follow  Read the entire log file at once instead of
                           following new lines.
   -h, --help              Show this message and exit.
 
+
+
 ```
 
+### run from source
 
-### Running from source
 ```shell
 python -m ngxctl.cli
 ```
