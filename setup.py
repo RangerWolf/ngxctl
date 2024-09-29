@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="ngxctl",  # 你的项目名称
-    version="0.1.1",  # 版本号
+    version="0.1.2",  # 版本号
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
