@@ -3,12 +3,12 @@ from setuptools import setup, find_packages
 
 setup(
     name="ngxctl",  # 你的项目名称
-    version="0.1.2",  # 版本号
+    version="0.1.3",  # 版本号
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
         "crossplane==0.5.8",
-        "pandas==2.0.3",
+        #"pandas==2.0.3",
         "jsonpath-ng==1.6.1",
         "tabulate==0.9.0",
         "click==8.1.7",
