@@ -71,12 +71,16 @@ class SQLProcessor(object):
                     for i in range(0, len(all_rows)):
                         cur_row = list(all_rows[i])
                         time_span = calc_nginx_time_diff(cur_row[start_time_idx], cur_row[end_time_idx])
+                        if time_span < 1:
+                            time_span = 1
                         req_per_second = f"{ cur_row[count_idx] / time_span:.2f}"
                         cur_row.append(req_per_second)
                         new_rows.append(cur_row)
                     columns.append('req/s')
+                    result = tabulate.tabulate(new_rows, headers=columns, tablefmt='orgtbl', floatfmt='.3f')
+                else:
+                    result = tabulate.tabulate(all_rows, headers=columns, tablefmt='orgtbl', floatfmt='.3f')
 
-                result = tabulate.tabulate(new_rows, headers=columns, tablefmt='orgtbl', floatfmt='.3f')
                 output.append('%s\n%s' % (label, result))
         return '\n\n'.join(output)
 
