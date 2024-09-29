@@ -2,7 +2,6 @@ import sqlite3
 import time
 import logging
 from contextlib import closing
-from turtledemo.penrose import start
 
 import tabulate
 
