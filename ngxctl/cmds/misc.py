@@ -25,7 +25,7 @@ def vars(ctx):
 @click.command()
 @click.pass_context
 def files(ctx):
-    """Read nginx conf and show all variables access logs used"""
+    """Read nginx conf and show all access logs"""
     log_path_results = ctx.obj['log_path_results']
     log_format_results = ctx.obj['log_format_results']
 
