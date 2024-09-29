@@ -7,10 +7,10 @@
 ## Installation
 ```shell
 # Install from PyPI
-pip install ngxtop
+pip install ngxctl
 
 # Install from Tencent Cloud source
-pip install ngxtop --index-url https://mirrors.cloud.tencent.com/pypi/simple --trusted-host mirrors.cloud.tencent.com
+pip install ngxctl --index-url https://mirrors.cloud.tencent.com/pypi/simple --trusted-host mirrors.cloud.tencent.com
 
 ```
 
@@ -19,7 +19,7 @@ pip install ngxtop --index-url https://mirrors.cloud.tencent.com/pypi/simple --t
 ### Display Configured Log Files
 ```shell
 # cmd
-ngxctl sites
+ngxctl files
 
 # output example
 | server_name         | file_name                                       | log_path                                  |
@@ -94,6 +94,8 @@ Options:
   --follow / --no-follow  Read the entire log file at once instead of
                           following new lines.
   -h, --help              Show this message and exit.
+
+
 
 ```
 
