@@ -19,7 +19,7 @@ setup(
         ],
     },
     author="RangerWolf",
-    author_email="rangerwolf@gmail.com",
+    author_email="yang.rangerwolf@gmail.com",
     description="A command-line tool for managing and analyzing Nginx.",
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
