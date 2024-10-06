@@ -1,4 +1,4 @@
-# `ngxctl` - real-time metrics for nginx server
+# `ngxctl` - nginx 服务器实时数据统计
 
 ## 项目介绍
 1. 参考ngxtop这个项目，重新构建，并根据实际情况进行了改造
