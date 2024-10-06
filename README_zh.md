@@ -17,10 +17,11 @@ pip install ngxtop --index-url https://mirrors.cloud.tencent.com/pypi/simple --t
 ## 运行
 
 ### 显示当前配置了哪些log
+```
 | server_name         | file_name                                         | log_path                                  |
 |---------------------+---------------------------------------------------+-------------------------------------------|
 | www.test1.net...    | /etc/nginx/sites-enabled/www.test1.net.conf       | /var/log/nginx/www.test1.net-extended.log |
-
+```
 
 ### 显示access log一共使用了哪些变量
 ```shell
